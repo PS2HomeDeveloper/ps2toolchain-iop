@@ -100,6 +100,9 @@ CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
   --disable-tls \
   --disable-libstdcxx \
   $HOST_OPTS \
+  --with-gmp="$ANDROID_DEPS_PREFIX" \
+  --with-mpfr="$ANDROID_DEPS_PREFIX" \
+  --with-mpc="$ANDROID_DEPS_PREFIX" \
   $TARG_XTRA_OPTS
 
 ## Compile and install.
