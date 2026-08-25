@@ -60,6 +60,11 @@ rm -rf "build-$TARGET-stage1"
 mkdir "build-$TARGET-stage1"
 cd "build-$TARGET-stage1"
 
+HOST_OPTS=""
+if [ -n "$CONFIGURE_HOST" ]; then
+  HOST_OPTS="--host=$CONFIGURE_HOST"
+fi
+
 ## Configure the build.
 ## -fno-char8_t keeps u8"..." literals as `const char[]` so libcody builds
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
@@ -94,6 +99,7 @@ CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
   --disable-nls \
   --disable-tls \
   --disable-libstdcxx \
+  $HOST_OPTS \
   $TARG_XTRA_OPTS
 
 ## Compile and install.
