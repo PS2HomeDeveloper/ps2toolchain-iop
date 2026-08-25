@@ -71,6 +71,7 @@ fi
   --disable-separate-code \
   --disable-sim \
   --disable-nls \
+  --disable-gdb \
   --with-python=no \
   $HOST_OPTS \
   $TARG_XTRA_OPTS
