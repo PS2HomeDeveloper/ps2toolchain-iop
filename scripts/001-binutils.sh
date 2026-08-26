@@ -54,6 +54,39 @@ fi
 ## Determine the maximum number of processes that Make can work with.
 PROC_NR=$(getconf _NPROCESSORS_ONLN)
 
+## ------------------------------------------------------------------
+## STEP A: Build a NATIVE copy of binutils (runs on the CI machine).
+## This copy is only used internally so that GCC's own build/configure
+## step can actually EXECUTE "mipsel-none-elf-as" / "-ld" while testing
+## assembler features. It is installed OUTSIDE of $PS2DEV, so it is
+## never packaged into the final Android release.
+## ------------------------------------------------------------------
+if [ -n "$NATIVE_PS2DEV" ]; then
+  rm -rf "build-$TARGET-native"
+  mkdir "build-$TARGET-native"
+  cd "build-$TARGET-native"
+
+  CC=gcc CXX=g++ AR=ar AS=as LD=ld RANLIB=ranlib STRIP=strip NM=nm \
+  ../configure \
+    --quiet \
+    --prefix="$NATIVE_PS2DEV/$TARGET_ALIAS" \
+    --target="$TARGET" \
+    --disable-separate-code \
+    --disable-sim \
+    --disable-nls \
+    --with-python=no
+
+  make --quiet -j "$PROC_NR"
+  make --quiet -j "$PROC_NR" install-strip
+  make --quiet -j "$PROC_NR" clean
+
+  cd ..
+fi
+
+## ------------------------------------------------------------------
+## STEP B: Build the FINAL Android copy of binutils (what gets shipped).
+## ------------------------------------------------------------------
+
 ## Create and enter the toolchain/build directory
 rm -rf "build-$TARGET"
 mkdir "build-$TARGET"
@@ -63,6 +96,7 @@ HOST_OPTS=""
 if [ -n "$CONFIGURE_HOST" ]; then
   HOST_OPTS="--host=$CONFIGURE_HOST"
 fi
+
 ## Configure the build.
 ../configure \
   --quiet \
@@ -71,7 +105,6 @@ fi
   --disable-separate-code \
   --disable-sim \
   --disable-nls \
-  --disable-gdb \
   --with-python=no \
   $HOST_OPTS \
   $TARG_XTRA_OPTS
