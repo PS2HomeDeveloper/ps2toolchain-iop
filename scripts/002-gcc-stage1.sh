@@ -62,8 +62,62 @@ cd "build-$TARGET-stage1"
 
 HOST_OPTS=""
 if [ -n "$CONFIGURE_HOST" ]; then
-  HOST_OPTS="--build=$(gcc -dumpmachine) --host=$CONFIGURE_HOST"
+  HOST_OPTS="--host=$CONFIGURE_HOST"
 fi
+
+## ------------------------------------------------------------------
+## STEP A: Build a NATIVE copy of GCC stage1 (runs on the CI machine).
+## GCC's own build needs to EXECUTE "mipsel-none-elf-gcc" internally
+## (to generate its "specs" file). Since the Android copy cannot run
+## here, we build a native copy first and put it on PATH ahead of the
+## Android one (see compilation.yml). This native copy is not shipped.
+## ------------------------------------------------------------------
+if [ -n "$NATIVE_PS2DEV" ]; then
+  rm -rf "build-$TARGET-stage1-native"
+  mkdir "build-$TARGET-stage1-native"
+  cd "build-$TARGET-stage1-native"
+
+  CC=gcc CXX=g++ AR=ar AS=as LD=ld RANLIB=ranlib STRIP=strip NM=nm \
+  CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
+  CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
+  ../configure \
+    --quiet \
+    --prefix="$NATIVE_PS2DEV/$TARGET_ALIAS" \
+    --target="$TARGET" \
+    --enable-languages="c,c++" \
+    --with-float=soft \
+    --with-headers=no \
+    --without-newlib \
+    --without-cloog \
+    --without-ppl \
+    --disable-decimal-float \
+    --disable-libada \
+    --disable-libatomic \
+    --disable-libffi \
+    --disable-libgomp \
+    --disable-libmudflap \
+    --disable-libquadmath \
+    --disable-libssp \
+    --disable-libstdcxx-pch \
+    --disable-multilib \
+    --disable-shared \
+    --disable-threads \
+    --disable-target-libiberty \
+    --disable-target-zlib \
+    --disable-nls \
+    --disable-tls \
+    --disable-libstdcxx
+
+  make --quiet -j "$PROC_NR" all
+  make --quiet -j "$PROC_NR" install-strip
+  make --quiet -j "$PROC_NR" clean
+
+  cd ..
+fi
+
+## ------------------------------------------------------------------
+## STEP B: Build the FINAL Android copy of GCC (what gets shipped).
+## ------------------------------------------------------------------
 
 ## GCC's own configure looks for the target assembler/linker/etc. inside
 ## "$prefix/$target/bin" (i.e. $PS2DEV/iop/bin) BEFORE checking $PATH.
