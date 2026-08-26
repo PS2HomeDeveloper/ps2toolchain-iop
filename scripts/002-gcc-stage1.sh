@@ -65,6 +65,23 @@ if [ -n "$CONFIGURE_HOST" ]; then
   HOST_OPTS="--host=$CONFIGURE_HOST"
 fi
 
+## GCC's own configure looks for the target assembler/linker/etc. inside
+## "$prefix/$target/bin" (i.e. $PS2DEV/iop/bin) BEFORE checking $PATH.
+## Since the binaries there are built for Android (cannot run on the CI
+## machine), we point GCC explicitly at the NATIVE copies built earlier
+## in 001-binutils.sh (STEP A), so GCC's build-time feature checks and
+## internal invocations use tools that can actually execute here.
+FOR_TARGET_OPTS=""
+if [ -n "$NATIVE_PS2DEV" ] && [ -x "$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-as" ]; then
+  FOR_TARGET_OPTS="AS_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-as"
+  FOR_TARGET_OPTS="$FOR_TARGET_OPTS LD_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-ld"
+  FOR_TARGET_OPTS="$FOR_TARGET_OPTS AR_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-ar"
+  FOR_TARGET_OPTS="$FOR_TARGET_OPTS RANLIB_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-ranlib"
+  FOR_TARGET_OPTS="$FOR_TARGET_OPTS NM_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-nm"
+  FOR_TARGET_OPTS="$FOR_TARGET_OPTS OBJDUMP_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-objdump"
+  FOR_TARGET_OPTS="$FOR_TARGET_OPTS READELF_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-readelf"
+fi
+
 ## Configure the build.
 ## -fno-char8_t keeps u8"..." literals as `const char[]` so libcody builds
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
@@ -72,6 +89,7 @@ CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS="-g -O2 -fno-char8_t" \
 CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
+$FOR_TARGET_OPTS \
 ../configure \
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
@@ -99,10 +117,10 @@ CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
   --disable-nls \
   --disable-tls \
   --disable-libstdcxx \
-  $HOST_OPTS \
   --with-gmp="$ANDROID_DEPS_PREFIX" \
   --with-mpfr="$ANDROID_DEPS_PREFIX" \
   --with-mpc="$ANDROID_DEPS_PREFIX" \
+  $HOST_OPTS \
   $TARG_XTRA_OPTS
 
 ## Compile and install.
