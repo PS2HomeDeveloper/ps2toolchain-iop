@@ -89,7 +89,6 @@ CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS="-g -O2 -fno-char8_t" \
 CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
-$FOR_TARGET_OPTS \
 ../configure \
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
@@ -121,7 +120,8 @@ $FOR_TARGET_OPTS \
   --with-mpfr="$ANDROID_DEPS_PREFIX" \
   --with-mpc="$ANDROID_DEPS_PREFIX" \
   $HOST_OPTS \
-  $TARG_XTRA_OPTS
+  $TARG_XTRA_OPTS \
+  $FOR_TARGET_OPTS
 
 ## Compile and install.
 make --quiet -j "$PROC_NR" all
