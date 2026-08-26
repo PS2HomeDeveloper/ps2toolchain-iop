@@ -55,16 +55,6 @@ fi
 ## Determine the maximum number of processes that Make can work with.
 PROC_NR=$(getconf _NPROCESSORS_ONLN)
 
-## Create and enter the toolchain/build directory
-rm -rf "build-$TARGET-stage1"
-mkdir "build-$TARGET-stage1"
-cd "build-$TARGET-stage1"
-
-HOST_OPTS=""
-if [ -n "$CONFIGURE_HOST" ]; then
-  HOST_OPTS="--host=$CONFIGURE_HOST"
-fi
-
 ## ------------------------------------------------------------------
 ## STEP A: Build a NATIVE copy of GCC stage1 (runs on the CI machine).
 ## GCC's own build needs to EXECUTE "mipsel-none-elf-gcc" internally
@@ -118,6 +108,16 @@ fi
 ## ------------------------------------------------------------------
 ## STEP B: Build the FINAL Android copy of GCC (what gets shipped).
 ## ------------------------------------------------------------------
+
+## Create and enter the toolchain/build directory
+rm -rf "build-$TARGET-stage1"
+mkdir "build-$TARGET-stage1"
+cd "build-$TARGET-stage1"
+
+HOST_OPTS=""
+if [ -n "$CONFIGURE_HOST" ]; then
+  HOST_OPTS="--host=$CONFIGURE_HOST"
+fi
 
 ## GCC's own configure looks for the target assembler/linker/etc. inside
 ## "$prefix/$target/bin" (i.e. $PS2DEV/iop/bin) BEFORE checking $PATH.
