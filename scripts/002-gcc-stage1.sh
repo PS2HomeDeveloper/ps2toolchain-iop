@@ -62,7 +62,7 @@ cd "build-$TARGET-stage1"
 
 HOST_OPTS=""
 if [ -n "$CONFIGURE_HOST" ]; then
-  HOST_OPTS="--host=$CONFIGURE_HOST"
+  HOST_OPTS="--build=$(gcc -dumpmachine) --host=$CONFIGURE_HOST"
 fi
 
 ## GCC's own configure looks for the target assembler/linker/etc. inside
