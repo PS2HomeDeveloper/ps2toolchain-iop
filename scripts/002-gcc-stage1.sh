@@ -153,8 +153,9 @@ fi
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
-CXXFLAGS="-g -O2 -fno-char8_t" \
+CXXFLAGS="-g -O2 -fno-char8_t -fno-PIE" \
 CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
+LDFLAGS="-no-pie" \
 ../configure \
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
