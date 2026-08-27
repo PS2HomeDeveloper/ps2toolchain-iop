@@ -119,21 +119,15 @@ if [ -n "$CONFIGURE_HOST" ]; then
   HOST_OPTS="--host=$CONFIGURE_HOST"
 fi
 
-## GCC's own configure looks for the target assembler/linker/etc. inside
-## "$prefix/$target/bin" (i.e. $PS2DEV/iop/bin) BEFORE checking $PATH.
-## Since the binaries there are built for Android (cannot run on the CI
-## machine), we point GCC explicitly at the NATIVE copies built earlier
-## in 001-binutils.sh (STEP A), so GCC's build-time feature checks and
-## internal invocations use tools that can actually execute here.
-FOR_TARGET_OPTS=""
-if [ -n "$NATIVE_PS2DEV" ] && [ -x "$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-as" ]; then
-  FOR_TARGET_OPTS="AS_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-as"
-  FOR_TARGET_OPTS="$FOR_TARGET_OPTS LD_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-ld"
-  FOR_TARGET_OPTS="$FOR_TARGET_OPTS AR_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-ar"
-  FOR_TARGET_OPTS="$FOR_TARGET_OPTS RANLIB_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-ranlib"
-  FOR_TARGET_OPTS="$FOR_TARGET_OPTS NM_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-nm"
-  FOR_TARGET_OPTS="$FOR_TARGET_OPTS OBJDUMP_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-objdump"
-  FOR_TARGET_OPTS="$FOR_TARGET_OPTS READELF_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-readelf"
+## GCC's own build needs to EXECUTE the target compiler/assembler/linker
+## internally (e.g. to generate its "specs" file) DURING the build itself,
+## using an in-tree reference — not a PATH lookup. GCC has an official
+## configure option made exactly for this situation in a real Canadian
+## Cross build: --with-build-time-tools=DIR tells it to use already-built,
+## natively-runnable tools from DIR instead of trying to run itself.
+BUILD_TIME_TOOLS_OPTS=""
+if [ -n "$NATIVE_PS2DEV" ] && [ -d "$NATIVE_PS2DEV/$TARGET_ALIAS/bin" ]; then
+  BUILD_TIME_TOOLS_OPTS="--with-build-time-tools=$NATIVE_PS2DEV/$TARGET_ALIAS/bin"
 fi
 
 ## Configure the build.
@@ -175,7 +169,7 @@ CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
   --with-mpc="$ANDROID_DEPS_PREFIX" \
   $HOST_OPTS \
   $TARG_XTRA_OPTS \
-  $FOR_TARGET_OPTS
+  $BUILD_TIME_TOOLS_OPTS
 
 ## Compile and install.
 make --quiet -j "$PROC_NR" all
