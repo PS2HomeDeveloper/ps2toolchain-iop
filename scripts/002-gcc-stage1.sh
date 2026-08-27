@@ -151,11 +151,11 @@ fi
 ## Configure the build.
 ## -fno-char8_t keeps u8"..." literals as `const char[]` so libcody builds
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
-CC="$CC -fno-PIE -fPIC" \
-CXX="$CXX -fno-PIE -fPIC -no-pie" \
+CC="$CC -fPIC" \
+CXX="$CXX -fPIC" \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
-CXXFLAGS="-g -O2 -fno-char8_t" \
+CXXFLAGS="-g -O1 -fno-char8_t" \
 CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
 ../configure \
   --quiet \
