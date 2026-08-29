@@ -191,8 +191,8 @@ CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
   $TARG_XTRA_OPTS \
   $BUILD_TIME_TOOLS_OPTS \
   $FOR_TARGET_OPTS \
-  CC_FOR_BUILD=gcc \
-  CXX_FOR_BUILD=g++
+  CC_FOR_BUILD=/usr/bin/gcc \
+  CXX_FOR_BUILD=/usr/bin/g++
 
 ## Compile and install.
 make --quiet -j "$PROC_NR" all
