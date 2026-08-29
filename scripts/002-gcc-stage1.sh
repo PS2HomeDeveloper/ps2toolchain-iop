@@ -153,12 +153,6 @@ fi
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
 CC="$CC -fPIC -Wl,--no-relax" \
 CXX="$CXX -fPIC -Wl,--no-relax" \
-CC_FOR_BUILD=gcc \
-CXX_FOR_BUILD=g++ \
-CC_FOR_BUILD=cc \
-CXX_FOR_BUILD=c++ \
-CC_FOR_BUILD=gcc \
-CXX_FOR_BUILD=g++ \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS="-g -O1 -fno-char8_t" \
@@ -196,7 +190,9 @@ CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
   $HOST_OPTS \
   $TARG_XTRA_OPTS \
   $BUILD_TIME_TOOLS_OPTS \
-  $FOR_TARGET_OPTS
+  $FOR_TARGET_OPTS \
+  CC_FOR_BUILD=gcc \
+  CXX_FOR_BUILD=g++
 
 ## Compile and install.
 make --quiet -j "$PROC_NR" all
