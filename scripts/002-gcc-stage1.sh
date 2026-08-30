@@ -192,7 +192,8 @@ CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
   $BUILD_TIME_TOOLS_OPTS \
   $FOR_TARGET_OPTS \
   CC_FOR_BUILD=/usr/bin/gcc \
-  CXX_FOR_BUILD=/usr/bin/g++
+  CXX_FOR_BUILD=/usr/bin/g++ \
+  CFLAGS_FOR_BUILD="-g -O2 -include limits.h"
 
 ## Compile and install.
 make --quiet -j "$PROC_NR" all
