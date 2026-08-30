@@ -32,6 +32,15 @@ fi
 
 cd "$REPO_FOLDER"
 
+## Patch a known missing-include issue in libiberty/fibheap.c directly at
+## the source level. This avoids relying on GCC's internal (and, for this
+## exact case, historically unreliable — see GCC mailing list archives on
+## "canadian cross trouble with libiberty location") CC_FOR_BUILD/
+## CFLAGS_FOR_BUILD propagation for its own "build-*" helper-tools tree.
+if [ -f libiberty/fibheap.c ] && ! grep -q '#include <limits.h>' libiberty/fibheap.c; then
+  sed -i '1i #include <limits.h>' libiberty/fibheap.c
+fi
+
 TARGET="mipsel-none-elf"
 TARGET_ALIAS="iop"
 TARG_XTRA_OPTS=""
@@ -153,10 +162,11 @@ fi
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
 CC="$CC -fPIC -Wl,--no-relax" \
 CXX="$CXX -fPIC -Wl,--no-relax" \
+CFLAGS="-O2 -include limits.h" \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS="-g -O1 -fno-char8_t" \
-CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t" \
+CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t -include limits.h" \
 ../configure \
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
