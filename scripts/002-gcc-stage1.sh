@@ -162,11 +162,16 @@ fi
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
 CC="$CC -fPIC -Wl,--no-relax" \
 CXX="$CXX -fPIC -Wl,--no-relax" \
-CFLAGS="-O2 -std=gnu11 -include limits.h -include unistd.h -include fcntl.h -D_GNU_SOURCE" \
+CFLAGS="-O2 -include limits.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1" \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS="-g -O1 -fno-char8_t" \
 CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t -include limits.h" \
+ac_cv_header_fcntl_h=yes \
+ac_cv_func_open=yes \
+ac_cv_func_dup2=yes \
+ac_cv_func_psignal=yes \
+ac_cv_func_strsignal=yes \
 ../configure \
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
