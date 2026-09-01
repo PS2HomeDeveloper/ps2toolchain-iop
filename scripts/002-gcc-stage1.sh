@@ -32,6 +32,12 @@ fi
 
 cd "$REPO_FOLDER"
 
+## Patch: libiberty.h declares basename() as 'char *' but Android's string.h declares
+## it as 'const char *'. This causes a hard C++ error (ambiguous declaration).
+## Fix: change libiberty.h's declaration to 'const char *' to match Android's.
+## This is applied only to the working copy; no upstream fork needed.
+sed -i 's/extern char \*basename/extern const char *basename/g' include/libiberty.h
+
 ## Patch a known missing-include issue in libiberty/fibheap.c directly at
 ## the source level. This avoids relying on GCC's internal (and, for this
 ## exact case, historically unreliable — see GCC mailing list archives on
