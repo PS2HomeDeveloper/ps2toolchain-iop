@@ -32,29 +32,14 @@ fi
 
 cd "$REPO_FOLDER"
 
-## Patch libiberty.h: when building for Android (HOST), libiberty.h declares
-## basename() as 'char *' but Android's bionic/string.h declares it as
-## 'const char *' — causing a hard C++ ambiguous-declaration error.
-## Fix: add !defined(__ANDROID__) guard so libiberty.h skips the declaration
-## on Android (bionic already provides it). On Ubuntu (BUILD machine, glibc)
-## the original 'char *' declaration is kept — both sides are now happy.
-python3 -c "
-with open('include/libiberty.h', 'r') as f:
-    content = f.read()
-content = content.replace(
-    '#if !HAVE_DECL_BASENAME\nextern char *basename',
-    '#if !HAVE_DECL_BASENAME && !defined(__ANDROID__)\nextern char *basename'
-)
-with open('include/libiberty.h', 'w') as f:
-    f.write(content)
-print('Patched libiberty.h: basename guard extended for Android')
-"
+## Patch libiberty.h: extend the HAVE_DECL_BASENAME guard to also skip on Android
+## because bionic/string.h already declares basename() as const char*.
+## This avoids a hard C++ "ambiguous declaration" error in libcpp/*.cc.
+## On Ubuntu (BUILD machine, glibc) the original char* declaration is kept.
+sed -i 's|#if !HAVE_DECL_BASENAME|#if !HAVE_DECL_BASENAME \&\& !defined(__ANDROID__)|g' \
+  include/libiberty.h
 
-## Patch a known missing-include issue in libiberty/fibheap.c directly at
-## the source level. This avoids relying on GCC's internal (and, for this
-## exact case, historically unreliable — see GCC mailing list archives on
-## "canadian cross trouble with libiberty location") CC_FOR_BUILD/
-## CFLAGS_FOR_BUILD propagation for its own "build-*" helper-tools tree.
+## Patch libiberty/fibheap.c to include <limits.h> if missing (needed for LONG_MIN).
 if [ -f libiberty/fibheap.c ] && ! grep -q '#include <limits.h>' libiberty/fibheap.c; then
   sed -i '1i #include <limits.h>' libiberty/fibheap.c
 fi
