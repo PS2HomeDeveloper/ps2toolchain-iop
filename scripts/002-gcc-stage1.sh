@@ -32,12 +32,14 @@ fi
 
 cd "$REPO_FOLDER"
 
-## Patch libiberty.h: extend the HAVE_DECL_BASENAME guard to also skip on Android
-## because bionic/string.h already declares basename() as const char*.
-## This avoids a hard C++ "ambiguous declaration" error in libcpp/*.cc.
-## On Ubuntu (BUILD machine, glibc) the original char* declaration is kept.
-sed -i 's|#if !HAVE_DECL_BASENAME|#if !HAVE_DECL_BASENAME \&\& !defined(__ANDROID__)|g' \
-  include/libiberty.h
+## Patch libiberty.h: wrap the 'char* basename' declaration with #ifndef __ANDROID__
+## so Android's bionic (which declares it as 'const char*') doesn't conflict.
+## We target the declaration line directly — GCC 15's guard text varies and is
+## not reliably matchable. GNU sed's i/a commands insert before and after the match.
+sed -i '/extern char \*basename (const char \*)/{
+  i #ifndef __ANDROID__
+  a #endif /* __ANDROID__ */
+}' include/libiberty.h
 
 ## Patch libiberty/fibheap.c to include <limits.h> if missing (needed for LONG_MIN).
 if [ -f libiberty/fibheap.c ] && ! grep -q '#include <limits.h>' libiberty/fibheap.c; then
