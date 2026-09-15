@@ -44,6 +44,14 @@ if [ -f libiberty/fibheap.c ] && ! grep -q '#include <limits.h>' libiberty/fibhe
   sed -i '1i #include <limits.h>' libiberty/fibheap.c
 fi
 
+## Patch libiberty/getcwd.c: Android/bionic does not have getwd() (removed in POSIX 2008).
+## config.h may set HAVE_GETWD=1 based on cross-compile guessing, which causes a
+## link error. Add !defined(__ANDROID__) to the guard to force getcwd() code path.
+if [ -f libiberty/getcwd.c ]; then
+  sed -i 's/#ifdef HAVE_GETWD/#if defined(HAVE_GETWD) \&\& !defined(__ANDROID__)/g' \
+    libiberty/getcwd.c
+fi
+
 TARGET="mipsel-none-elf"
 TARGET_ALIAS="iop"
 TARG_XTRA_OPTS=""
