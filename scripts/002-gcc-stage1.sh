@@ -32,13 +32,16 @@ fi
 
 cd "$REPO_FOLDER"
 
-## Patch libiberty.h: wrap the 'char* basename' declaration with #ifndef __ANDROID__
-## so Android's bionic (which declares it as 'const char*') doesn't conflict.
-## We target the declaration line directly — GCC 15's guard text varies and is
-## not reliably matchable. GNU sed's i/a commands insert before and after the match.
+## Patch libiberty.h: in C++ mode, both glibc (Ubuntu) and bionic (Android)
+## expose 'const char* basename', but libiberty.h declares 'char* basename'.
+## This causes a hard "ambiguating declaration" error when compiling C++ files.
+## Fix: make the declaration conditional on __cplusplus — const char* in C++ mode
+## (matching both glibc C++ and bionic), plain char* in C mode (matching glibc C).
 sed -i '/extern char \*basename (const char \*)/{
-  i #ifndef __ANDROID__
-  a #endif /* __ANDROID__ */
+  i #ifdef __cplusplus
+  i extern const char *basename (const char *) ATTRIBUTE_RETURNS_NONNULL ATTRIBUTE_NONNULL(1);
+  i #else
+  a #endif /* __cplusplus */
 }' include/libiberty.h
 
 ## Patch libiberty/fibheap.c to include <limits.h> if missing (needed for LONG_MIN).
