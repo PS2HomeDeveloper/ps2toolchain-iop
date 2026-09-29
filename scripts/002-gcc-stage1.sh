@@ -32,29 +32,43 @@ fi
 
 cd "$REPO_FOLDER"
 
-## Patch libiberty.h: in C++ mode, both glibc (Ubuntu) and bionic (Android)
-## expose 'const char* basename', but libiberty.h declares 'char* basename'.
-## This causes a hard "ambiguating declaration" error when compiling C++ files.
-## Fix: make the declaration conditional on __cplusplus — const char* in C++ mode
-## (matching both glibc C++ and bionic), plain char* in C mode (matching glibc C).
-sed -i '/extern char \*basename (const char \*)/{
-  i #ifdef __cplusplus
-  i extern const char *basename (const char *) ATTRIBUTE_RETURNS_NONNULL ATTRIBUTE_NONNULL(1);
-  i #else
-  a #endif /* __cplusplus */
-}' include/libiberty.h
+## ------------------------------------------------------------------
+## Android/bionic compatibility patches (all verified: build fails loudly
+## if a patch did not apply, instead of silently doing nothing).
+## ------------------------------------------------------------------
 
-## Patch libiberty/fibheap.c to include <limits.h> if missing (needed for LONG_MIN).
+## (1) libiberty.h / basename.
+## Root cause of the "ambiguating new declaration of 'char* basename'" errors:
+## the native (Ubuntu) build of libcpp is C++, and glibc's <string.h> already
+## declares basename() as `extern "C++" const char *basename(const char *)`,
+## while libiberty.h declares `extern char *basename(const char *)`.
+## GCC's sources never call basename() directly (they use lbasename()), so in
+## C++ we simply skip libiberty's declaration. C files keep the original one,
+## which matches both glibc (C) and bionic (libgen.h).
+if ! grep -q 'HAVE_DECL_BASENAME && !defined (__cplusplus)' include/libiberty.h; then
+  sed -i 's/^#if !HAVE_DECL_BASENAME[[:space:]]*$/#if !HAVE_DECL_BASENAME \&\& !defined (__cplusplus)/' include/libiberty.h
+fi
+if ! grep -q 'HAVE_DECL_BASENAME && !defined (__cplusplus)' include/libiberty.h; then
+  echo "ERROR: libiberty.h basename patch did not apply. Context:"
+  grep -n -B3 -A3 'basename' include/libiberty.h | head -60
+  exit 1
+fi
+
+## (2) libiberty/fibheap.c needs <limits.h> (LONG_MIN).
 if [ -f libiberty/fibheap.c ] && ! grep -q '#include <limits.h>' libiberty/fibheap.c; then
   sed -i '1i #include <limits.h>' libiberty/fibheap.c
 fi
 
-## Patch libiberty/getcwd.c: Android/bionic does not have getwd() (removed in POSIX 2008).
-## config.h may set HAVE_GETWD=1 based on cross-compile guessing, which causes a
-## link error. Add !defined(__ANDROID__) to the guard to force getcwd() code path.
+## (3) libiberty/getcwd.c: this replacement getcwd() calls getwd(), which does
+## not exist in bionic -> "ld.lld: undefined symbol: getwd" when linking
+## fixincl. bionic already provides a real getcwd(), so turn the replacement
+## into an empty translation unit (the previous '#ifdef HAVE_GETWD' sed never
+## matched anything: that file has no such guard).
 if [ -f libiberty/getcwd.c ]; then
-  sed -i 's/#ifdef HAVE_GETWD/#if defined(HAVE_GETWD) \&\& !defined(__ANDROID__)/g' \
-    libiberty/getcwd.c
+  cat > libiberty/getcwd.c <<'EOF_GETCWD'
+/* Intentionally empty: Android/bionic provides getcwd(). */
+typedef int libiberty_getcwd_unused_t;
+EOF_GETCWD
 fi
 
 TARGET="mipsel-none-elf"
@@ -178,14 +192,15 @@ fi
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
 CC="$CC -fPIC -Wl,--no-relax" \
 CXX="$CXX -fPIC -Wl,--no-relax" \
-CFLAGS="-O2 -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD -DHAVE_DECL_BASENAME=1" \
+CFLAGS="-O2 -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD" \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
-CXXFLAGS="-g -O1 -fno-char8_t -D_GNU_SOURCE -DHAVE_DECL_BASENAME=1" \
+CXXFLAGS="-g -O1 -fno-char8_t -D_GNU_SOURCE" \
 CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t -include limits.h" \
 ac_cv_header_fcntl_h=yes \
 ac_cv_func_open=yes \
 ac_cv_func_dup2=yes \
+ac_cv_func_getcwd=yes \
 ac_cv_func_psignal=yes \
 ac_cv_func_strsignal=yes \
 ../configure \
