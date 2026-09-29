@@ -256,10 +256,24 @@ if ! make --quiet -j "$PROC_NR" all; then
   fi
   echo "=== DIAG-END ==="
 
-  ## ---- Fallback: rebuild only cp/module.o without optimisation, relink ----
-  echo "=== FALLBACK: rebuilding gcc/cp/module.o with -O0 ==="
+  ## ---- Fix: root cause is the symbol `environ` -------------------------------
+  ## GCC builds its host executables with -fno-PIE / -no-pie. In cp/module.cc,
+  ## write_env() reads libc's `environ` directly (ABS_LO12 relocation), so lld
+  ## makes a COPY relocation for it inside cc1plus. The NDK's stub libc.so
+  ## gives `environ` only 4-byte alignment, so the copy lands at an address
+  ## that is 4 mod 8 and the 8-byte load is rejected.
+  ## Recompile just cp/module.o as position-independent (-fPIC instead of
+  ## -fno-PIE): `environ` is then reached through the GOT, no copy reloc.
+  echo "=== FALLBACK: rebuilding gcc/cp/module.o with -fPIC (no -fno-PIE) ==="
+  ( cd gcc && grep -n 'NO_PIE' Makefile | head -10 )
   rm -f gcc/cp/module.o
-  make --quiet -C gcc cp/module.o CXXFLAGS="-g -O0 -fno-char8_t -D_GNU_SOURCE"
+  ( cd gcc && make -n cp/module.o ) > /tmp/module_cmd.sh 2>/dev/null
+  sed -i 's/-fno-PIE/-fPIC/g; s/-fno-pie/-fPIC/g; s/-no-pie//g' /tmp/module_cmd.sh
+  ( cd gcc && bash /tmp/module_cmd.sh ) || echo "WARNING: manual module.o rebuild returned non-zero"
+  if [ -x "$DIAG_BIN/llvm-objdump" ] && [ -f gcc/cp/module.o ]; then
+    echo "--- relocations against environ after rebuild ---"
+    "$DIAG_BIN/llvm-objdump" -dr gcc/cp/module.o 2>/dev/null | grep -m5 'environ'
+  fi
   make --quiet -j "$PROC_NR" all
 fi
 make --quiet -j "$PROC_NR" install-strip
