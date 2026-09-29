@@ -257,22 +257,23 @@ if ! make --quiet -j "$PROC_NR" all; then
   echo "=== DIAG-END ==="
 
   ## ---- Fix: root cause is the symbol `environ` -------------------------------
-  ## GCC builds its host executables with -fno-PIE / -no-pie. In cp/module.cc,
-  ## write_env() reads libc's `environ` directly (ABS_LO12 relocation), so lld
-  ## makes a COPY relocation for it inside cc1plus. The NDK's stub libc.so
-  ## gives `environ` only 4-byte alignment, so the copy lands at an address
-  ## that is 4 mod 8 and the 8-byte load is rejected.
-  ## Recompile just cp/module.o as position-independent (-fPIC instead of
-  ## -fno-PIE): `environ` is then reached through the GOT, no copy reloc.
-  echo "=== FALLBACK: rebuilding gcc/cp/module.o with -fPIC (no -fno-PIE) ==="
-  ( cd gcc && grep -n 'NO_PIE' Makefile | head -10 )
+  ## write_env() in cp/module.cc reads libc's `environ`. clang (PIE-by-default
+  ## on Android) accesses it directly (ABS_LO12 relocation), so lld makes a COPY
+  ## relocation for it inside cc1plus. The NDK stub libc.so gives `environ` only
+  ## 4-byte alignment -> copy lands at 4 mod 8 -> 8-byte load rejected.
+  ## Recompile just cp/module.o so external data is reached through the GOT
+  ## (-fPIC + -fno-direct-access-external-data): no copy relocation is needed.
+  ## (Same override mechanism as the previous -O0 attempt, which was accepted.)
+  echo "=== FALLBACK: rebuilding gcc/cp/module.o with GOT access to external data ==="
   rm -f gcc/cp/module.o
-  ( cd gcc && make -n cp/module.o ) > /tmp/module_cmd.sh 2>/dev/null
-  sed -i 's/-fno-PIE/-fPIC/g; s/-fno-pie/-fPIC/g; s/-no-pie//g' /tmp/module_cmd.sh
-  ( cd gcc && bash /tmp/module_cmd.sh ) || echo "WARNING: manual module.o rebuild returned non-zero"
-  if [ -x "$DIAG_BIN/llvm-objdump" ] && [ -f gcc/cp/module.o ]; then
+  make --quiet -C gcc cp/module.o \
+    CXXFLAGS="-g -O1 -fPIC -fno-direct-access-external-data -fno-char8_t -D_GNU_SOURCE" || true
+  if [ ! -f gcc/cp/module.o ]; then
+    echo "ERROR: gcc/cp/module.o was not rebuilt"; exit 1
+  fi
+  if [ -x "$DIAG_BIN/llvm-objdump" ]; then
     echo "--- relocations against environ after rebuild ---"
-    "$DIAG_BIN/llvm-objdump" -dr gcc/cp/module.o 2>/dev/null | grep -m5 'environ'
+    "$DIAG_BIN/llvm-objdump" -dr gcc/cp/module.o 2>/dev/null | grep -m5 'environ' || true
   fi
   make --quiet -j "$PROC_NR" all
 fi
