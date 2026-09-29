@@ -193,16 +193,18 @@ fi
 ## clang folds string-literal copies into 8-byte loads; lld then places the
 ## (merged) literal at a non-8-aligned address. With -mstrict-align clang no
 ## longer assumes such loads are safe, so the relocation stays valid.
-## It is only in CFLAGS/CXXFLAGS (host = Android), never in *_FOR_BUILD.
+## It goes into CC/CXX (the Android clang) and NOT into CFLAGS/CXXFLAGS:
+## GCC leaks CFLAGS/CXXFLAGS into the native x86 "build-*" subtree, whose
+## g++ rejects -mstrict-align ("unrecognized command line option").
 ## Configure the build.
 ## -fno-char8_t keeps u8"..." literals as `const char[]` so libcody builds
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
-CC="$CC -fPIC -Wl,--no-relax" \
-CXX="$CXX -fPIC -Wl,--no-relax" \
-CFLAGS="-O2 -mstrict-align -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD" \
+CC="$CC -fPIC -mstrict-align -Wl,--no-relax" \
+CXX="$CXX -fPIC -mstrict-align -Wl,--no-relax" \
+CFLAGS="-O2 -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD" \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
-CXXFLAGS="-g -O1 -mstrict-align -fno-char8_t -D_GNU_SOURCE" \
+CXXFLAGS="-g -O1 -fno-char8_t -D_GNU_SOURCE" \
 CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t -include limits.h" \
 ac_cv_header_fcntl_h=yes \
 ac_cv_func_open=yes \
