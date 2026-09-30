@@ -9,11 +9,11 @@ onerr()
 trap onerr ERR
 
 ## Read information from the configuration file.
-source "$(dirname "$0")/../config/ps2toolchain-iop-config.sh"
+source "$(dirname "$0")/../config/ps2toolchain-ee-config.sh"
 
 ## Download the source code.
-REPO_URL="$PS2TOOLCHAIN_IOP_GCC_REPO_URL"
-REPO_REF="$PS2TOOLCHAIN_IOP_GCC_DEFAULT_REPO_REF"
+REPO_URL="$PS2TOOLCHAIN_EE_GCC_REPO_URL"
+REPO_REF="$PS2TOOLCHAIN_EE_GCC_DEFAULT_REPO_REF"
 REPO_FOLDER="$(s="$REPO_URL"; s=${s##*/}; printf "%s" "${s%.*}")"
 
 # Checking if a specific Git reference has been passed in parameter $1
@@ -71,8 +71,8 @@ typedef int libiberty_getcwd_unused_t;
 EOF_GETCWD
 fi
 
-TARGET="mipsel-none-elf"
-TARGET_ALIAS="iop"
+TARGET="mips64r5900el-ps2-elf"
+TARGET_ALIAS="ee"
 TARG_XTRA_OPTS=""
 TARGET_CFLAGS="-O2 -gdwarf-2 -gz"
 OSVER=$(uname)
@@ -96,7 +96,7 @@ PROC_NR=$(getconf _NPROCESSORS_ONLN)
 
 ## ------------------------------------------------------------------
 ## STEP A: Build a NATIVE copy of GCC stage1 (runs on the CI machine).
-## GCC's own build needs to EXECUTE "mipsel-none-elf-gcc" internally
+## GCC's own build needs to EXECUTE "$TARGET-gcc" internally
 ## (to generate its "specs" file). Since the Android copy cannot run
 ## here, we build a native copy first and put it on PATH ahead of the
 ## Android one (see compilation.yml). This native copy is not shipped.
@@ -113,32 +113,25 @@ if [ -n "$NATIVE_PS2DEV" ]; then
     --quiet \
     --prefix="$NATIVE_PS2DEV/$TARGET_ALIAS" \
     --target="$TARGET" \
-    --enable-languages="c,c++" \
-    --with-float=soft \
-    --with-headers=no \
+    --enable-languages="c" \
+    --with-float=hard \
+    --without-headers \
     --without-newlib \
-    --without-cloog \
-    --without-ppl \
-    --disable-decimal-float \
-    --disable-libada \
+    --disable-libgcc \
+    --disable-shared \
+    --disable-threads \
+    --disable-multilib \
     --disable-libatomic \
-    --disable-libffi \
+    --disable-nls \
+    --disable-tls \
+    --disable-libssp \
     --disable-libgomp \
     --disable-libmudflap \
     --disable-libquadmath \
-    --disable-libssp \
-    --disable-libstdcxx-pch \
-    --disable-multilib \
-    --disable-shared \
-    --disable-threads \
-    --disable-target-libiberty \
-    --disable-target-zlib \
-    --disable-nls \
-    --disable-tls \
-    --disable-libstdcxx
+    --disable-plugin
 
-  make --quiet -j "$PROC_NR" all
-  make --quiet -j "$PROC_NR" install-strip
+  make --quiet -j "$PROC_NR" all-gcc
+  make --quiet -j "$PROC_NR" install-gcc
   make --quiet -j "$PROC_NR" clean
 
   cd ..
@@ -185,14 +178,6 @@ if [ -n "$NATIVE_PS2DEV" ] && [ -x "$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-as"
 fi
 if [ -n "$NATIVE_PS2DEV" ] && [ -x "$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-gcc" ]; then
   FOR_TARGET_OPTS="$FOR_TARGET_OPTS GCC_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-gcc"
-  ## Target libgcc's configure runs "$CC_FOR_TARGET". In a cross-host build the
-  ## top-level configure falls back to the bare name "$TARGET-cc" (which does not
-  ## exist anywhere: "mipsel-none-elf-cc: command not found"), so point it at
-  ## the native, runnable stage-1 compiler built in STEP A.
-  FOR_TARGET_OPTS="$FOR_TARGET_OPTS CC_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-gcc"
-  if [ -x "$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-g++" ]; then
-    FOR_TARGET_OPTS="$FOR_TARGET_OPTS CXX_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-g++"
-  fi
 fi
 
 ## Configure the build.
@@ -215,29 +200,21 @@ ac_cv_func_strsignal=yes \
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
   --target="$TARGET" \
-  --enable-languages="c,c++" \
-  --with-float=soft \
-  --with-headers=no \
+  --enable-languages="c" \
+  --with-float=hard \
+  --without-headers \
   --without-newlib \
-  --without-cloog \
-  --without-ppl \
-  --disable-decimal-float \
-  --disable-libada \
+  --disable-libgcc \
+  --disable-shared \
+  --disable-threads \
+  --disable-multilib \
   --disable-libatomic \
-  --disable-libffi \
+  --disable-nls \
+  --disable-tls \
+  --disable-libssp \
   --disable-libgomp \
   --disable-libmudflap \
   --disable-libquadmath \
-  --disable-libssp \
-  --disable-libstdcxx-pch \
-  --disable-multilib \
-  --disable-shared \
-  --disable-threads \
-  --disable-target-libiberty \
-  --disable-target-zlib \
-  --disable-nls \
-  --disable-tls \
-  --disable-libstdcxx \
   --disable-plugin \
   --with-gmp="$ANDROID_DEPS_PREFIX" \
   --with-mpfr="$ANDROID_DEPS_PREFIX" \
@@ -251,41 +228,8 @@ ac_cv_func_strsignal=yes \
   CFLAGS_FOR_BUILD="-g -O2 -include limits.h"
 
 ## Compile and install.
-if ! make --quiet -j "$PROC_NR" all; then
-  ## ---- Diagnostics for the lld "improper alignment" error in cp/module.o ----
-  echo "=== DIAG-BEGIN: first 'make all' failed ==="
-  DIAG_BIN="$(dirname "${CC%% *}")"
-  if [ -f gcc/cp/module.o ] && [ -x "$DIAG_BIN/llvm-objdump" ]; then
-    echo "--- LDST64 relocations inside write_env (symbol+addend) ---"
-    "$DIAG_BIN/llvm-objdump" -dr gcc/cp/module.o 2>/dev/null \
-      | awk '/^[0-9a-f]+ <.*>:/{f=($0 ~ /write_env/)} f && /LDST64_ABS_LO12_NC/' | head -40
-    echo "--- section alignments of module.o ---"
-    "$DIAG_BIN/llvm-readelf" -S gcc/cp/module.o 2>/dev/null | grep -E 'rodata|\.data|\.bss' | head -40
-  fi
-  echo "=== DIAG-END ==="
-
-  ## ---- Fix: root cause is the symbol `environ` -------------------------------
-  ## write_env() in cp/module.cc reads libc's `environ`. clang (PIE-by-default
-  ## on Android) accesses it directly (ABS_LO12 relocation), so lld makes a COPY
-  ## relocation for it inside cc1plus. The NDK stub libc.so gives `environ` only
-  ## 4-byte alignment -> copy lands at 4 mod 8 -> 8-byte load rejected.
-  ## Recompile just cp/module.o so external data is reached through the GOT
-  ## (-fPIC + -fno-direct-access-external-data): no copy relocation is needed.
-  ## (Same override mechanism as the previous -O0 attempt, which was accepted.)
-  echo "=== FALLBACK: rebuilding gcc/cp/module.o with GOT access to external data ==="
-  rm -f gcc/cp/module.o
-  make --quiet -C gcc cp/module.o \
-    CXXFLAGS="-g -O1 -fPIC -fno-direct-access-external-data -fno-char8_t -D_GNU_SOURCE" || true
-  if [ ! -f gcc/cp/module.o ]; then
-    echo "ERROR: gcc/cp/module.o was not rebuilt"; exit 1
-  fi
-  if [ -x "$DIAG_BIN/llvm-objdump" ]; then
-    echo "--- relocations against environ after rebuild ---"
-    "$DIAG_BIN/llvm-objdump" -dr gcc/cp/module.o 2>/dev/null | grep -m5 'environ' || true
-  fi
-  make --quiet -j "$PROC_NR" all
-fi
-make --quiet -j "$PROC_NR" install-strip
+make --quiet -j "$PROC_NR" all-gcc
+make --quiet -j "$PROC_NR" install-gcc
 make --quiet -j "$PROC_NR" clean
 
 ## Exit the build directory.
