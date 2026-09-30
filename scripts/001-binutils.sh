@@ -9,11 +9,11 @@ onerr()
 trap onerr ERR
 
 ## Read information from the configuration file.
-source "$(dirname "$0")/../config/ps2toolchain-ee-config.sh"
+source "$(dirname "$0")/../config/ps2toolchain-iop-config.sh"
 
 ## Download the source code.
-REPO_URL="$PS2TOOLCHAIN_EE_BINUTILS_REPO_URL"
-REPO_REF="$PS2TOOLCHAIN_EE_BINUTILS_DEFAULT_REPO_REF"
+REPO_URL="$PS2TOOLCHAIN_IOP_BINUTILS_REPO_URL"
+REPO_REF="$PS2TOOLCHAIN_IOP_BINUTILS_DEFAULT_REPO_REF"
 REPO_FOLDER="$(s="$REPO_URL"; s=${s##*/}; printf "%s" "${s%.*}")"
 
 # Checking if a specific Git reference has been passed in parameter $1
@@ -32,8 +32,8 @@ fi
 
 cd "$REPO_FOLDER"
 
-TARGET="mips64r5900el-ps2-elf"
-TARGET_ALIAS="ee"
+TARGET="mipsel-none-elf"
+TARGET_ALIAS="iop"
 TARG_XTRA_OPTS=""
 OSVER=$(uname)
 
@@ -71,11 +71,9 @@ if [ -n "$NATIVE_PS2DEV" ]; then
     --quiet \
     --prefix="$NATIVE_PS2DEV/$TARGET_ALIAS" \
     --target="$TARGET" \
-    --with-sysroot="$NATIVE_PS2DEV/$TARGET_ALIAS/$TARGET" \
     --disable-separate-code \
     --disable-sim \
     --disable-nls \
-    --disable-gdb \
     --with-python=no
 
   make --quiet -j "$PROC_NR"
@@ -104,7 +102,6 @@ fi
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
   --target="$TARGET" \
-  --with-sysroot="$PS2DEV/$TARGET_ALIAS/$TARGET" \
   --disable-separate-code \
   --disable-sim \
   --disable-nls \
