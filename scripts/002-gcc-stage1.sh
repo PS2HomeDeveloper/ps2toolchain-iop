@@ -185,6 +185,14 @@ if [ -n "$NATIVE_PS2DEV" ] && [ -x "$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-as"
 fi
 if [ -n "$NATIVE_PS2DEV" ] && [ -x "$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-gcc" ]; then
   FOR_TARGET_OPTS="$FOR_TARGET_OPTS GCC_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-gcc"
+  ## Target libgcc's configure runs "$CC_FOR_TARGET". In a cross-host build the
+  ## top-level configure falls back to the bare name "$TARGET-cc" (which does not
+  ## exist anywhere: "mipsel-none-elf-cc: command not found"), so point it at
+  ## the native, runnable stage-1 compiler built in STEP A.
+  FOR_TARGET_OPTS="$FOR_TARGET_OPTS CC_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-gcc"
+  if [ -x "$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-g++" ]; then
+    FOR_TARGET_OPTS="$FOR_TARGET_OPTS CXX_FOR_TARGET=$NATIVE_PS2DEV/$TARGET_ALIAS/bin/$TARGET-g++"
+  fi
 fi
 
 ## Configure the build.
