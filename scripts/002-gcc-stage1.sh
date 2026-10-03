@@ -198,8 +198,12 @@ fi
 ## Configure the build.
 ## -fno-char8_t keeps u8"..." literals as `const char[]` so libcody builds
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
+## -static-libstdc++: the NDK's clang++ otherwise links libc++_shared.so dynamically, and that
+## library does not exist on a clean Termux/Android ("CANNOT LINK EXECUTABLE ... library
+## "libc++_shared.so" not found"). With clang this flag links the NDK's own libc++.a into every
+## C++ program of the compiler (cc1plus, lto1, g++-mapper-server, the gcc driver, ...).
 CC="$CC -fPIC -Wl,--no-relax" \
-CXX="$CXX -fPIC -Wl,--no-relax" \
+CXX="$CXX -static-libstdc++ -fPIC -Wl,--no-relax" \
 CFLAGS="-O2 -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD" \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
