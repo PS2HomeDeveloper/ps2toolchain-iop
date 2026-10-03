@@ -198,14 +198,13 @@ fi
 ## Configure the build.
 ## -fno-char8_t keeps u8"..." literals as `const char[]` so libcody builds
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
-CC="$CC -fPIE -fPIC -Wl,--no-relax -Wl,-pie" \
-CXX="$CXX -fPIE -fPIC -Wl,--no-relax -Wl,-pie" \
-CFLAGS="-O2 -fPIE -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD" \
+CC="$CC -fPIC -Wl,--no-relax" \
+CXX="$CXX -fPIC -Wl,--no-relax" \
+CFLAGS="-O2 -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD" \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
-CXXFLAGS="-g -O1 -fPIE -fno-char8_t -D_GNU_SOURCE" \
-CXXFLAGS_FOR_BUILD="-g -O2 -fPIE -fno-char8_t -include limits.h" \
-LDFLAGS="-pie" \
+CXXFLAGS="-g -O1 -fno-char8_t -D_GNU_SOURCE" \
+CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t -include limits.h" \
 ac_cv_header_fcntl_h=yes \
 ac_cv_func_open=yes \
 ac_cv_func_dup2=yes \
@@ -216,6 +215,7 @@ ac_cv_func_strsignal=yes \
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
   --target="$TARGET" \
+  --enable-host-pie \
   --enable-languages="c,c++" \
   --with-float=soft \
   --with-headers=no \
@@ -252,6 +252,14 @@ ac_cv_func_strsignal=yes \
   CFLAGS_FOR_BUILD="-g -O2 -include limits.h"
 
 ## Compile and install.
+## ---- Diagnostics: how will the compiler executables be linked? -----------------
+## Android only runs position-independent executables (ET_DYN). Print the relevant
+## Makefile lines so the log shows what the link rules contain.
+echo "=== PIE diagnostics (gcc/Makefile) ==="
+grep -n -E '^(LD_PICFLAG|PICFLAG|NO_PIE_FLAG|LDFLAGS|LINKER|ALL_LINKERFLAGS)[[:space:]]*=' gcc/Makefile | cut -c1-200 | head -20 || true
+grep -n -e '-no-pie' -e '-static-pie' gcc/Makefile | cut -c1-200 | head -10 || true
+echo "=== end PIE diagnostics ==="
+
 if ! make --quiet -j "$PROC_NR" all; then
   ## ---- Diagnostics for the lld "improper alignment" error in cp/module.o ----
   echo "=== DIAG-BEGIN: first 'make all' failed ==="
