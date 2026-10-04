@@ -98,6 +98,7 @@ if [ -n "$CONFIGURE_HOST" ]; then
 fi
 
 ## Configure the build.
+CC_FOR_BUILD=gcc \
 ../configure \
   --quiet \
   --prefix="$PS2DEV/$TARGET_ALIAS" \
@@ -111,7 +112,18 @@ fi
   $TARG_XTRA_OPTS
 
 ## Compile and install.
-make --quiet -j "$PROC_NR"
+if ! make --quiet -j "$PROC_NR"; then
+  ## bfd/doc/chew is a helper the build compiles and then RUNS. Under a parallel build it can be
+  ## missing when another job needs it (error: "/bin/bash: doc/chew: No such file or directory").
+  ## Report what exists, then simply continue with a single job.
+  echo "=== make failed: retrying with one job (checking bfd/doc/chew first) ==="
+  if [ -e bfd/doc/chew ]; then
+    echo "bfd/doc/chew exists, ELF machine byte: $(od -An -tx1 -j18 -N1 bfd/doc/chew | tr -d ' \n')"
+  else
+    echo "bfd/doc/chew does not exist"
+  fi
+  make --quiet -j 1
+fi
 make --quiet -j "$PROC_NR" install-strip
 make --quiet -j "$PROC_NR" clean
 
