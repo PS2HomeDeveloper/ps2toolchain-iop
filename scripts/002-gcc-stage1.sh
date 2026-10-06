@@ -253,7 +253,12 @@ ac_cv_func_strsignal=yes \
   $FOR_TARGET_OPTS \
   CC_FOR_BUILD=/usr/bin/gcc \
   CXX_FOR_BUILD=/usr/bin/g++ \
-  CFLAGS_FOR_BUILD="-g -O2 -include limits.h"
+  CFLAGS_FOR_BUILD="-g -O2 -include limits.h" \
+  || {
+    echo "=== GCC configure FAILED: the part of config.log that explains it ==="
+    grep -n -i -B3 -A14 -e 'gmp' -e 'mpfr' -e 'mpc' -e 'error:' config.log | tail -n 160
+    exit 1
+  }
 
 ## Compile and install.
 ## ---- Diagnostics: how will the compiler executables be linked? -----------------
