@@ -198,16 +198,20 @@ fi
 ## Configure the build.
 ## -fno-char8_t keeps u8"..." literals as `const char[]` so libcody builds
 ## under host compilers that default to C++20 or later (e.g. GCC 16).
+## -D_FILE_OFFSET_BITS=64: on 32-bit Android, bionic's "struct stat" always has a 64-bit st_size
+## while off_t stays 32-bit unless this is defined; GCC then fails with
+##   "no known conversion from 'long long *' to 'off_t *'" (libcpp/files.cc). It changes nothing on
+## the 64-bit ABIs, where off_t is already 64-bit.
 ## -static-libstdc++: the NDK's clang++ otherwise links libc++_shared.so dynamically, and that
 ## library does not exist on a clean Termux/Android ("CANNOT LINK EXECUTABLE ... library
 ## "libc++_shared.so" not found"). With clang this flag links the NDK's own libc++.a into every
 ## C++ program of the compiler (cc1plus, lto1, g++-mapper-server, the gcc driver, ...).
 CC="$CC -fPIC -Wl,--no-relax" \
 CXX="$CXX -static-libstdc++ -fPIC -Wl,--no-relax" \
-CFLAGS="-O2 -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD" \
+CFLAGS="-O2 -include limits.h -include fcntl.h -include unistd.h -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Wno-implicit-function-declaration -DHAVE_SYS_SIGLIST=1 -DHAVE_PSIGNAL=1 -UHAVE_GETWD" \
 CFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
 CXXFLAGS_FOR_TARGET="$TARGET_CFLAGS" \
-CXXFLAGS="-g -O1 -fno-char8_t -D_GNU_SOURCE" \
+CXXFLAGS="-g -O1 -fno-char8_t -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64" \
 CXXFLAGS_FOR_BUILD="-g -O2 -fno-char8_t -include limits.h" \
 ac_cv_header_fcntl_h=yes \
 ac_cv_func_open=yes \
@@ -269,7 +273,13 @@ grep -n -E '^(LD_PICFLAG|PICFLAG|NO_PIE_FLAG|LDFLAGS|LINKER|ALL_LINKERFLAGS)[[:s
 grep -n -e '-no-pie' -e '-static-pie' gcc/Makefile | cut -c1-200 | head -10 || true
 echo "=== end PIE diagnostics ==="
 
-if ! make --quiet -j "$PROC_NR" all; then
+make --quiet -j "$PROC_NR" all 2>&1 | tee /tmp/gcc-make.log
+MAKE_RC=${PIPESTATUS[0]}
+if [ "$MAKE_RC" -ne 0 ] && ! grep -q 'cp/module.o' /tmp/gcc-make.log; then
+  echo "=== make failed, and NOT because of the known cc1plus link problem: the error above is the real one. Stopping. ==="
+  exit 1
+fi
+if [ "$MAKE_RC" -ne 0 ]; then
   ## ---- Diagnostics for the lld "improper alignment" error in cp/module.o ----
   echo "=== DIAG-BEGIN: first 'make all' failed ==="
   DIAG_BIN="$(dirname "${CC%% *}")"
@@ -293,7 +303,7 @@ if ! make --quiet -j "$PROC_NR" all; then
   echo "=== FALLBACK: rebuilding gcc/cp/module.o with GOT access to external data ==="
   rm -f gcc/cp/module.o
   make --quiet -C gcc cp/module.o \
-    CXXFLAGS="-g -O1 -fPIC -fno-direct-access-external-data -fno-char8_t -D_GNU_SOURCE" || true
+    CXXFLAGS="-g -O1 -fPIC -fno-direct-access-external-data -fno-char8_t -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64" || true
   if [ ! -f gcc/cp/module.o ]; then
     echo "ERROR: gcc/cp/module.o was not rebuilt"; exit 1
   fi
